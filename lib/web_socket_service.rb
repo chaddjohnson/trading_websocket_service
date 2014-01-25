@@ -1,4 +1,3 @@
-#require "#{File.dirname __FILE__}/../../config/environment" 
 require './config/application.rb'
 require 'em-websocket'
 require 'json'
@@ -42,8 +41,8 @@ class WebSocketService
     case message_type
       when TradingApi.types[:login]
         # Look up the account by token.
-        account = TradingCore::Account.find_by_token(message_data['token'])
-        if !account
+        @account = TradingCore::Account.find_by_token(message_data['token'])
+        if !@account
           response_data = {
             :type => TradingApi.types[:login],
             :data => { :logged_in => false }
@@ -53,8 +52,8 @@ class WebSocketService
         end
         
         # Get a reference to the API client.
-        @api = account.api
-        @streamer = account.streamer
+        @api = @account.api
+        @streamer = @account.streamer
         
         # Now that we're logged in, make this class observe API changes.
         @api.add_observer(self)
@@ -66,11 +65,11 @@ class WebSocketService
         }
         @socket.send(response_data.to_json)
       
-      when TradingApi.types[:quotes]
-        quotes = @api.quotes(message_data['symbols'])
+      when TradingApi.types[:quote]
+        quote = @api.quotes(message_data['symbol'])[0]
         response_data = {
-          :type => TradingApi.types[:quotes],
-          :data => quotes
+          :type => TradingApi.types[:quote],
+          :data => quote
         }
         @socket.send(response_data.to_json)
         
@@ -98,9 +97,9 @@ class WebSocketService
         # TODO Keep positions data up to date. Perhaps use some sort or interval here.
         # ...
 
-      when TradingApi.types[:chart]
+      when TradingApi.types[:chart_data]
         # Retrieve all available stock data for the given security.
-        security = Security.where(:symbol => message_date['symbol']).first
+        security = TradingCore::Security.where(:symbol => message_data['symbol']).first
         quotes = security.historical_quotes
         quotes = quotes.where('date < ?', @account.playback_date) if @account.playback_date
         quote_data = [];
@@ -108,18 +107,18 @@ class WebSocketService
         quotes.each do |quote|
           quote_data << {
             :symbol       => security.symbol,
-            :timestamp    => Time.now.getutc.strftime('%Y-%m-%d %H:%M:%S'),
+            :timestamp    => quote.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             :last_price   => quote.last_price.to_f,
             :bid_price    => quote.bid_price.to_f,
             :ask_price    => quote.bid_price.to_f,
             :trade_volume => quote.trade_volume
           }
         end
-
         @socket.send({
-          :type => TradingApi.types[:chart],
+          :type => TradingApi.types[:chart_data],
+          :symbol => message_data['symbol'],
           :data => quote_data
-        })
+        }.to_json)
     end
   end
   
