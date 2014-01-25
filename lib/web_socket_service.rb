@@ -2,11 +2,12 @@
 require './config/application.rb'
 require 'em-websocket'
 require 'json'
-require './lib/trading_api/base'
+require 'trading_core/trading_api/base'
 
 class WebSocketService
-  def initialize(socket)
+  def initialize(socket, client_data_broker)
     @socket = socket
+    @client_data_broker = client_data_broker
 
     @socket.onopen do
       puts 'New connection established'
@@ -41,7 +42,7 @@ class WebSocketService
     case message_type
       when TradingApi.types[:login]
         # Look up the account by token.
-        account = ::Account.find_by_token(message_data['token'])
+        account = TradingCore::Account.find_by_token(message_data['token'])
         if !account
           response_data = {
             :type => TradingApi.types[:login],
@@ -74,17 +75,9 @@ class WebSocketService
         @socket.send(response_data.to_json)
         
       when TradingApi.types[:stream_quotes]
-        quote_callback = lambda do |callback_data|
-          response_data = {
-            :type => TradingApi.types[:stream_quotes],
-            :data => callback_data
-          }
-          @socket.send(response_data.to_json)
-          
-          # Record history (only in live mode)
-          # ...
+        message_data['symbols'].each do |symbol|
+          @client_data_broker.add_client(symbol, @socket)
         end
-        @streamer.stream_quotes(message_data['symbols'], quote_callback)
         
       when TradingApi.types[:buy]
         @api.buy(message_data['symbol'], message_data['investment'].to_f, message_data['price'].to_f)
@@ -131,7 +124,7 @@ class WebSocketService
   end
   
   def handle_close
-    @streamer.stop
+    @client_data_broker.stop
     puts 'Connection closed'
   end
   
