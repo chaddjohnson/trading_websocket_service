@@ -109,6 +109,7 @@ class WebSocketService
           # Skip major spike quotes.
           previous_last_price ||= quote.last_price.to_f
           next if quote.last_price.to_f / previous_last_price > 1.015
+          next if quote.last_price.to_f / previous_last_price < 0.985
 
           quote_data << {
             :symbol       => security.symbol,
