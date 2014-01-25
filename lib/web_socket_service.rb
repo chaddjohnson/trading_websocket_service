@@ -103,8 +103,13 @@ class WebSocketService
         quotes = security.historical_quotes
         quotes = quotes.where('date < ?', @account.playback_date) if @account.playback_date
         quote_data = [];
+        previous_last_price = nil
 
         quotes.each do |quote|
+          # Skip major spike quotes.
+          previous_last_price ||= quote.last_price.to_f
+          next if quote.last_price.to_f / previous_last_price > 1.015
+
           quote_data << {
             :symbol       => security.symbol,
             :timestamp    => quote.created_at.strftime('%Y-%m-%d %H:%M:%S'),
@@ -113,6 +118,7 @@ class WebSocketService
             :ask_price    => quote.bid_price.to_f,
             :trade_volume => quote.trade_volume
           }
+          previous_last_price = quote.last_price.to_f
         end
         @socket.send({
           :type => TradingApi.types[:chart_data],
