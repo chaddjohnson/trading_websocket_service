@@ -75,7 +75,7 @@ class WebSocketService
         
       when TradingApi.types[:stream_quotes]
         message_data['symbols'].each do |symbol|
-          @client_data_broker.add_client(symbol, @socket)
+          @client_data_broker.add_client(@socket, symbol)
         end
         
       when TradingApi.types[:buy]
@@ -113,10 +113,10 @@ class WebSocketService
 
           quote_data << {
             :symbol       => security.symbol,
-            :timestamp    => quote.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             :last_price   => quote.last_price.to_f,
             :bid_price    => quote.bid_price.to_f,
             :ask_price    => quote.bid_price.to_f,
+            :timestamp    => quote.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             :trade_volume => quote.trade_volume
           }
           previous_last_price = quote.last_price.to_f
@@ -130,7 +130,7 @@ class WebSocketService
   end
   
   def handle_close
-    @client_data_broker.stop
+    @client_data_broker.remove_client(@socket)
     puts 'Connection closed'
   end
   
