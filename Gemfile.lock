@@ -5,7 +5,6 @@ PATH
       activerecord
       em-http-request
       em-websocket
-      em-websocket
       eventmachine
       mysql2
       nokogiri
