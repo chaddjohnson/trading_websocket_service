@@ -15,6 +15,4 @@ while true do
       WebSocketService.new(socket, client_data_broker)
     end
   end
-
-  account.streamer.stop
 end
