@@ -33,7 +33,6 @@ class WebSocketService
   private
   
   def handle_message(message)
-    puts message
     message = JSON.parse(message)
     
     message_type = message['type']
