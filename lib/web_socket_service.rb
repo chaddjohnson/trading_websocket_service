@@ -33,6 +33,7 @@ class WebSocketService
   private
   
   def handle_message(message)
+    puts message
     message = JSON.parse(message)
     
     message_type = message['type']
@@ -98,29 +99,30 @@ class WebSocketService
         # ...
 
       when TradingApi.types[:chart_data]
-        # Retrieve all available stock data for the given security.
         security = TradingCore::Security.where(:symbol => message_data['symbol']).first
-        quotes = security.historical_quotes
-        quotes = quotes.where('date < ?', @account.playback_date) if @account.playback_date
         quote_data = [];
         previous_last_price = nil
 
-        quotes.each do |quote|
+        security.chart_data.each do |quote|
           # Skip major spike quotes.
-          previous_last_price ||= quote.last_price.to_f
-          next if quote.last_price.to_f / previous_last_price > 1.015
-          next if quote.last_price.to_f / previous_last_price < 0.985
+          previous_last_price ||= quote[0]
+          next if quote[0] / previous_last_price > 1.015
+          next if quote[0] / previous_last_price < 0.985
 
           quote_data << {
             :symbol       => security.symbol,
-            :last_price   => quote.last_price.to_f,
-            :bid_price    => quote.bid_price.to_f,
-            :ask_price    => quote.bid_price.to_f,
-            :timestamp    => quote.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-            :trade_volume => quote.trade_volume
+            :last_price   => quote[0],
+            :bid_price    => quote[1],
+            :ask_price    => quote[2],
+            :trade_volume => quote[3],
+            :timestamp    => quote[4]
           }
-          previous_last_price = quote.last_price.to_f
+
+          previous_last_price = quote[0]
         end
+
+        puts "Sending chart data for symbol #{message_data['symbol']}"
+
         @socket.send({
           :type => TradingApi.types[:chart_data],
           :symbol => message_data['symbol'],
